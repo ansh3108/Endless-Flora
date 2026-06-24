@@ -4,18 +4,15 @@ body, html {
     width: 100vw;
     height: 100vh;
     overflow: hidden;
-    background: radial-gradient(circle at 50% 50%, #131522 0%, #040406 100%);
+    background: #040406; 
     color: #e2e8f0;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 #vignette {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: radial-gradient(circle at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.8) 100%);
+    inset: 0;
+    background: radial-gradient(circle at 50% 50%, transparent 20%, rgba(0, 0, 0, 0.95) 100%);
     pointer-events: none;
     z-index: 10;
 }
@@ -30,12 +27,12 @@ body, html {
     position: fixed;
     top: 24px;
     left: 24px;
-    background: rgba(10, 12, 20, 0.6);
+    background: rgba(10, 12, 20, 0.5);
     backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     padding: 12px 20px;
     border-radius: 8px;
     border: 1px solid rgba(255, 255, 255, 0.05);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), inset 0 0 10px rgba(255, 255, 255, 0.02);
     display: flex;
     gap: 16px;
     align-items: center;
@@ -51,19 +48,18 @@ body, html {
 
 #depth {
     font-weight: bold;
-    color: #38bdf8;
-    text-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+    color: #fff;
     min-width: 60px;
     display: inline-block;
 }
 
 input {
-    background: rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
     color: #94a3b8;
-    padding: 6px 12px;
-    border-radius: 4px;
-    width: 280px;
+    padding: 4px 0;
+    width: 220px;
     font-family: inherit;
     font-size: 13px;
     outline: none;
@@ -71,9 +67,41 @@ input {
 }
 
 input:focus {
-    border-color: #38bdf8;
+    border-color: #fff;
     color: #fff;
-    box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
+}
+
+#toast {
+    position: fixed;
+    bottom: 60px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    text-align: center;
+    z-index: 50;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#toast.visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+#toast-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    color: #94a3b8;
+    margin-bottom: 4px;
+}
+
+#toast-name {
+    font-size: 24px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    color: #fff;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
 }
 
 
