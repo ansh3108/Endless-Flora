@@ -8,11 +8,18 @@
 </head>
 <body>
     <div id="vignette"></div>
+    
     <div id="ui">
         Depth: <span id="depth">0</span>px 
         <div class="divider"></div>
         Share: <input id="shareUrl" readonly>
     </div>
+
+    <div id="toast" class="hidden">
+        <div id="toast-title">Entering</div>
+        <div id="toast-name">The Canopy</div>
+    </div>
+
     <canvas id="stage"></canvas>
     <script src="script.js"></script>
 </body>
