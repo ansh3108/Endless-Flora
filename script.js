@@ -4,6 +4,10 @@ const depthEl = document.getElementById('depth');
 const shareEl = document.getElementById('shareUrl');
 const toastEl = document.getElementById('toast');
 const toastNameEl = document.getElementById('toast-name');
+const guideToggleEl = document.getElementById('guide-toggle');
+const guideCloseEl = document.getElementById('guide-close');
+const guidePanelEl = document.getElementById('field-guide');
+const guideListEl = document.getElementById('guide-list');
 
 let w, h;
 let vy = 0;
@@ -16,14 +20,14 @@ const spacing = 450;
 const epochSize = 15000;
 const plantCache = new Map();
 const epochCache = new Map();
+let discoveredEpochs = JSON.parse(localStorage.getItem('infiniteGardenLog')) || [];
 
 const adjectives = ["Luminous", "Abyssal", "Crimson", "Crystalline", "Echoing", "Whispering", "Neon", "Fractal", "Obsidian", "Astral", "Verdant", "Ethereal", "Savage", "Serene", "Umbral", "Radiant", "Iridescent"];
 const nouns = ["Canopy", "Depths", "Grottos", "Matrix", "Weave", "Thicket", "Spire", "Vents", "Reach", "Domain", "Hollow", "Expanse", "Garden", "Tangle", "Nexus", "Sanctuary", "Ruins"];
 
 const initHash = parseInt(window.location.hash.replace('#', ''));
 if (!isNaN(initHash)) {
-    vy = initHash;
-    ty = initHash;
+    vy = ty = initHash;
 }
 
 const resize = () => {
@@ -34,8 +38,7 @@ window.addEventListener('resize', resize);
 resize();
 
 window.addEventListener('wheel', e => {
-    ty += e.deltaY * 1.2;
-    ty = Math.max(0, ty);
+    ty = Math.max(0, ty + e.deltaY * 1.2);
     window.history.replaceState(null, null, `#${Math.floor(ty)}`);
 });
 
@@ -43,6 +46,9 @@ shareEl.addEventListener('click', () => {
     shareEl.select();
     navigator.clipboard.writeText(shareEl.value);
 });
+
+guideToggleEl.addEventListener('click', () => guidePanelEl.classList.add('open'));
+guideCloseEl.addEventListener('click', () => guidePanelEl.classList.remove('open'));
 
 const prng = a => () => {
     let t = a += 0x6D2B79F5;
@@ -61,40 +67,32 @@ const particles = Array.from({ length: 120 }, () => ({
     alpha: Math.random() * 0.5 + 0.1
 }));
 
-
-const generateEpoch = (index) => {
+const generateEpoch = index => {
     if (epochCache.has(index)) return epochCache.get(index);
 
-    const seed = index * 99991 + 1; 
-    const rng = prng(seed);
-
+    const rng = prng(index * 99991 + 1);
     const adj = adjectives[Math.floor(rng() * adjectives.length)];
     const noun = nouns[Math.floor(rng() * nouns.length)];
     const name = index === 0 ? "The Surface" : `${adj} ${noun}`;
-
-    const h = index === 0 ? 140 : Math.floor(rng() * 360);
+    const hue = index === 0 ? 140 : Math.floor(rng() * 360);
 
     let ruleX = "F";
     const branches = Math.floor(rng() * 3) + 1;
-
+    
     for (let i = 0; i < branches; i++) {
         const sign = rng() > 0.5 ? '+' : '-';
         if (rng() > 0.7) {
-            ruleX += `[+X][-X]`; 
+            ruleX += `[+X][-X]`;
         } else {
             const inner = rng() > 0.5 ? "FX" : "X";
-            ruleX += `[${sign}${inner}]`; 
+            ruleX += `[${sign}${inner}]`;
         }
-        if (rng() > 0.5) ruleX += "F"; 
+        if (rng() > 0.5) ruleX += "F";
     }
     ruleX += (rng() > 0.5 ? "+X" : "-X");
 
-
     const branchCount = (ruleX.match(/\[/g) || []).length;
-    let iters = 5;
-    if (branchCount > 2) iters = 4;
-    if (branchCount > 4) iters = 3;
-
+    const iters = branchCount > 4 ? 3 : branchCount > 2 ? 4 : 5;
 
     let instructions = "X";
     for (let i = 0; i < iters; i++) {
@@ -108,7 +106,7 @@ const generateEpoch = (index) => {
     }
 
     const epochData = {
-        index, name, h,
+        index, name, h: hue,
         angle: 15 + rng() * 25,
         len: 3 + rng() * 6,
         instructions
@@ -129,10 +127,33 @@ const showToast = (name, colorHue) => {
     toastTimeout = setTimeout(() => toastEl.classList.remove('visible'), 3500);
 };
 
-const createPlantCanvas = (seed, absoluteY) => {
-    const epochIndex = Math.floor(absoluteY / epochSize);
-    const epoch = generateEpoch(epochIndex);
+const renderGuide = () => {
+    guideListEl.innerHTML = '';
     
+    if (!discoveredEpochs.length) {
+        guideListEl.innerHTML = '<div style="color: #64748b; font-size: 13px; text-align: center; margin-top: 20px;">Keep scrolling to discover new flora.</div>';
+        return;
+    }
+
+    [...discoveredEpochs].reverse().forEach(entry => {
+        const div = document.createElement('div');
+        div.className = 'log-entry';
+        div.innerHTML = `
+            <div class="log-depth">Depth: ${entry.depth}px</div>
+            <div class="log-name" style="color: hsl(${entry.h}, 100%, 75%); text-shadow: 0 0 8px hsla(${entry.h}, 100%, 50%, 0.4)">
+                ${entry.name}
+            </div>
+        `;
+        div.addEventListener('click', () => {
+            ty = entry.depth;
+            guidePanelEl.classList.remove('open');
+        });
+        guideListEl.appendChild(div);
+    });
+};
+
+const createPlantCanvas = (seed, absoluteY) => {
+    const epoch = generateEpoch(Math.floor(absoluteY / epochSize));
     const offscreen = document.createElement('canvas');
     const oCtx = offscreen.getContext('2d');
     
@@ -164,29 +185,25 @@ const createPlantCanvas = (seed, absoluteY) => {
             oCtx.lineTo(0, -len);
             oCtx.stroke();
             oCtx.translate(0, -len);
-        } else if (char === '+') {
-            oCtx.rotate(angleRad);
-        } else if (char === '-') {
-            oCtx.rotate(-angleRad);
-        } else if (char === '[') {
-            oCtx.save();
-        } else if (char === ']') {
-            oCtx.restore();
-        }
+        } else if (char === '+') oCtx.rotate(angleRad);
+        else if (char === '-') oCtx.rotate(-angleRad);
+        else if (char === '[') oCtx.save();
+        else if (char === ']') oCtx.restore();
     }
     
     return { canvas: offscreen, width: cWidth, height: cHeight };
 };
 
 const render = () => {
-
-    const activeEpoch = generateEpoch(Math.floor((vy + h/2) / epochSize));
+    const activeEpoch = generateEpoch(Math.floor((vy + h / 2) / epochSize));
     let hueDiff = activeEpoch.h - currentBgHue;
+    
     if (hueDiff > 180) hueDiff -= 360;
     else if (hueDiff < -180) hueDiff += 360;
+    
     currentBgHue = (currentBgHue + (hueDiff * 0.03) + 360) % 360;
 
-    const bgGradient = ctx.createRadialGradient(w/2, h/2, 0, w/2, h/2, Math.max(w, h));
+    const bgGradient = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h));
     bgGradient.addColorStop(0, `hsl(${currentBgHue}, 40%, 8%)`);
     bgGradient.addColorStop(1, '#020203');
     ctx.fillStyle = bgGradient;
@@ -220,8 +237,6 @@ const render = () => {
         const seed = i * 8675309;
         const rng = prng(seed);
         
-
-
         ctx.beginPath();
         ctx.moveTo(0, screenY);
         ctx.lineTo(w, screenY);
@@ -231,16 +246,14 @@ const render = () => {
 
         if (rng() > 0.2) {
             visibleSeeds.add(seed);
-            let cached = plantCache.get(seed);
-            if (!cached) {
-                cached = createPlantCanvas(seed, absY);
-                plantCache.set(seed, cached);
+            if (!plantCache.has(seed)) {
+                plantCache.set(seed, createPlantCanvas(seed, absY));
             }
+            const cached = plantCache.get(seed);
             const x = w * 0.1 + (rng() * w * 0.8);
             ctx.drawImage(cached.canvas, x - (cached.width / 2), screenY - cached.height + 60);
         }
     }
-
 
     for (let key of plantCache.keys()) {
         if (!visibleSeeds.has(key)) plantCache.delete(key);
@@ -253,19 +266,33 @@ const loop = () => {
     shareEl.value = `${window.location.href.split('#')[0]}#${Math.floor(ty)}`;
     
     const activeEpochIndex = Math.floor((vy + h / 2) / epochSize);
+    
     if (activeEpochIndex !== currentEpochIndex) {
         currentEpochIndex = activeEpochIndex;
         const epoch = generateEpoch(currentEpochIndex);
-        if (vy > 100) showToast(epoch.name, epoch.h);
+        
+        if (vy > 100) {
+            showToast(epoch.name, epoch.h);
+            
+            if (!discoveredEpochs.some(e => e.index === currentEpochIndex)) {
+                discoveredEpochs.push({
+                    index: currentEpochIndex,
+                    name: epoch.name,
+                    h: epoch.h,
+                    depth: currentEpochIndex * epochSize
+                });
+                localStorage.setItem('infiniteGardenLog', JSON.stringify(discoveredEpochs));
+                renderGuide();
+            }
+        }
     }
 
-    if (Math.abs(ty - vy) > 0.1 || particles.length > 0)  {
-        render();
-    }
+    if (Math.abs(ty - vy) > 0.1 || particles.length > 0) render();
     
     requestAnimationFrame(loop);
 };
 
+renderGuide();
 requestAnimationFrame(loop);
 
 

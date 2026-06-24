@@ -15,7 +15,17 @@
         Share: <input id="shareUrl" readonly>
     </div>
 
-    <div id="toast" class="hidden">
+    <button id="guide-toggle">📖 Field Guide</button>
+
+    <div id="field-guide">
+        <div class="guide-header">
+            <h2>Discovered Flora</h2>
+            <button id="guide-close">×</button>
+        </div>
+        <div id="guide-list"></div>
+    </div>
+
+    <div id="toast">
         <div id="toast-title">Entering</div>
         <div id="toast-name">The Canopy</div>
     </div>
@@ -24,4 +34,3 @@
     <script src="script.js"></script>
 </body>
 </html>
-
