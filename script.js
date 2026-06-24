@@ -8,6 +8,8 @@ let vy = 0;
 let ty = 0;
 const spacing = 450;
 
+const plantCache = new Map();
+
 const initHash = parseInt(window.location.hash.replace('#', ''));
 if (!isNaN(initHash)) {
     vy = initHash;
@@ -36,13 +38,13 @@ const prng = a => () => {
     return ((t ^ t >>> 14) >>> 0) / 4294967296;
 };
 
-const particles = Array.from({ length: 100 }, () => ({
+const particles = Array.from({ length: 80 }, () => ({
     x: Math.random() * window.innerWidth,
     y: Math.random() * window.innerHeight,
-    s: Math.random() * 2 + 0.5,
-    vx: (Math.random() - 0.5) * 0.3,
-    vy: (Math.random() - 0.5) * 0.3,
-    alpha: Math.random() * 0.5 + 0.1
+    s: Math.random() * 1.5 + 0.5,
+    vx: (Math.random() - 0.5) * 0.2,
+    vy: (Math.random() - 0.5) * 0.2,
+    alpha: Math.random() * 0.4 + 0.1
 }));
 
 const lSystems = {
@@ -69,20 +71,29 @@ const biomes = [
     { d: 45000, h: 190, axiom: 'X', iters: 5, len: 5, angle: 20 }
 ];
 
+biomes.forEach(b => {
+    b.instructions = lSystems.generate(b.axiom, b.iters);
+});
+
 const getBiome = depth => biomes.slice().reverse().find(b => depth >= b.d) || biomes[0];
 
-const drawPlant = (x, y, seed, depth) => {
+const createPlantCanvas = (seed, depth) => {
+    const offscreen = document.createElement('canvas');
+    const oCtx = offscreen.getContext('2d');
+    
+    const cWidth = 600;
+    const cHeight = 800;
+    offscreen.width = cWidth;
+    offscreen.height = cHeight;
+
     const rng = prng(seed);
     const biome = getBiome(depth);
-    const instructions = lSystems.generate(biome.axiom, biome.iters);
     
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
-    ctx.globalCompositeOperation = 'screen';
-    ctx.shadowBlur = 12;
-    ctx.shadowColor = `hsl(${biome.h}, 100%, 50%)`;
+    oCtx.translate(cWidth / 2, cHeight - 20); 
+    oCtx.lineWidth = 2;
+    oCtx.lineCap = 'round';
+    oCtx.shadowBlur = 12;
+    oCtx.shadowColor = `hsl(${biome.h}, 100%, 50%)`;
     
     const angleRad = (biome.angle + (rng() * 8 - 4)) * (Math.PI / 180);
     const len = biome.len * (0.8 + rng() * 0.5);
@@ -90,30 +101,30 @@ const drawPlant = (x, y, seed, depth) => {
     let step = 0;
     const colorVariance = rng() * 60;
 
-    for (let char of instructions) {
+    for (let char of biome.instructions) {
         if (char === 'F') {
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(0, -len);
+            oCtx.beginPath();
+            oCtx.moveTo(0, 0);
+            oCtx.lineTo(0, -len);
             
             const currentHue = biome.h + (step * 1.2) + colorVariance;
-            ctx.strokeStyle = `hsla(${currentHue}, 85%, 65%, 0.9)`;
-            ctx.stroke();
+            oCtx.strokeStyle = `hsla(${currentHue}, 85%, 65%, 0.9)`;
+            oCtx.stroke();
             
-            ctx.translate(0, -len);
+            oCtx.translate(0, -len);
             step++;
         } else if (char === '+') {
-            ctx.rotate(angleRad);
+            oCtx.rotate(angleRad);
         } else if (char === '-') {
-            ctx.rotate(-angleRad);
+            oCtx.rotate(-angleRad);
         } else if (char === '[') {
-            ctx.save();
+            oCtx.save();
         } else if (char === ']') {
-            ctx.restore();
+            oCtx.restore();
         }
     }
     
-    ctx.restore();
+    return { canvas: offscreen, width: cWidth, height: cHeight };
 };
 
 const render = () => {
@@ -136,10 +147,11 @@ const render = () => {
         ctx.fill();
     });
     
-    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalCompositeOperation = 'source-over'; 
 
     const sIdx = Math.floor(vy / spacing);
     const eIdx = Math.ceil((vy + h) / spacing);
+    const visibleSeeds = new Set();
 
     for (let i = sIdx; i <= eIdx; i++) {
         const absY = i * spacing;
@@ -155,8 +167,22 @@ const render = () => {
         ctx.stroke();
 
         if (rng() > 0.15) {
+            visibleSeeds.add(seed);
+            
+            let cached = plantCache.get(seed);
+            if (!cached) {
+                cached = createPlantCanvas(seed, absY);
+                plantCache.set(seed, cached);
+            }
+
             const x = w * 0.15 + (rng() * w * 0.7);
-            drawPlant(x, screenY, seed, absY);
+            ctx.drawImage(cached.canvas, x - (cached.width / 2), screenY - cached.height + 20);
+        }
+    }
+
+    for (let key of plantCache.keys()) {
+        if (!visibleSeeds.has(key)) {
+            plantCache.delete(key);
         }
     }
 };
@@ -171,5 +197,6 @@ const loop = () => {
 };
 
 requestAnimationFrame(loop);
+
 
 
